@@ -6,6 +6,10 @@ from typing import IO, BinaryIO, Iterable, Optional, Type
 
 import numpy.typing as npt
 import torch
+from ece496b_basics.loop import data_loader, load_checkpoint, save_checkpoint
+from ece496b_basics.train_bpe import train_bpe
+from ece496b_basics.gelu import Transformer_LM, TransformerBlock, gelu_func, RMSNorm, PWFF, multiHeadAttn, scaled_dot_product_attention, softmax
+from ece496b_basics.optimize import AdamW, clip_gradients, cosine_schedule, cross_entropy
 
 
 def run_positionwise_feedforward(
@@ -43,6 +47,8 @@ def run_positionwise_feedforward(
     # You can also manually assign the weights
     # my_ffn.w1.weight.data = weights["w1.weight"]
     # my_ffn.w2.weight.data = weights["w2.weight"]
+    pwff = PWFF(d_model, d_ff, weights)
+    return pwff(in_features)
     raise NotImplementedError
 
 
@@ -85,6 +91,7 @@ def run_scaled_dot_product_attention(
         with the output of running your scaled dot product attention
         implementation with the provided key, query, and value tensors.
     """
+    return scaled_dot_product_attention(K, Q, V, mask, pdrop)
     raise NotImplementedError
 
 
@@ -135,6 +142,8 @@ def run_multihead_self_attention(
         torch.FloatTensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+    multiHeadAttention = multiHeadAttn(d_model, num_heads, attn_pdrop, weights)
+    return multiHeadAttention(in_features)
     raise NotImplementedError
 
 
@@ -207,6 +216,8 @@ def run_transformer_block(
         FloatTensor of shape (batch_size, sequence_length, d_model) with the output of
         running the Transformer block on the input features.
     """
+    trans = TransformerBlock(d_model, num_heads, d_ff, attn_pdrop, residual_pdrop, weights)
+    return  trans(in_features)
     raise NotImplementedError
 
 
@@ -300,6 +311,8 @@ def run_transformer_lm(
         FloatTensor of shape (batch size, sequence_length, vocab_size) with the predicted unnormalized
         next-word distribution for each token.
     """
+    Transformer = Transformer_LM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, attn_pdrop, residual_pdrop, weights)
+    return Transformer(in_indices)
     raise NotImplementedError
 
 
@@ -331,6 +344,8 @@ def run_rmsnorm(
         FloatTensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
+    rms = RMSNorm(d_model, eps, weights)
+    return rms(in_features)
     raise NotImplementedError
 
 
@@ -346,6 +361,7 @@ def run_gelu(in_features: torch.FloatTensor) -> torch.FloatTensor:
         FloatTensor of with the same shape as `in_features` with the output of applying
         GELU to each element.
     """
+    return gelu_func(in_features)
     raise NotImplementedError
 
 
@@ -373,6 +389,7 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
+    return data_loader(dataset, batch_size, context_length, device)
     raise NotImplementedError
 
 
@@ -390,6 +407,7 @@ def run_softmax(in_features: torch.FloatTensor, dim: int) -> torch.FloatTensor:
         FloatTensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
+    return softmax(in_features, dim)
     raise NotImplementedError
 
 
@@ -408,6 +426,7 @@ def run_cross_entropy(inputs: torch.FloatTensor, targets: torch.LongTensor):
     Returns:
         Tensor of shape () with the average cross-entropy loss across examples.
     """
+    return cross_entropy(inputs, targets)
     raise NotImplementedError
 
 
@@ -423,6 +442,7 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
     Returns:
         None
     """
+    return clip_gradients
     raise NotImplementedError
 
 
@@ -430,6 +450,7 @@ def get_adamw_cls() -> Type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
+    return AdamW
     raise NotImplementedError
 
 
@@ -463,6 +484,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
+    return cosine_schedule(it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters)
     raise NotImplementedError
 
 
@@ -486,6 +508,7 @@ def run_save_checkpoint(
         out: str | os.PathLike | BinaryIO | IO[bytes]
             Path or file-like object to serialize the model, optimizer, and iteration to.
     """
+    return save_checkpoint(model, optimizer, iteration, out)
     raise NotImplementedError
 
 
@@ -510,6 +533,7 @@ def run_load_checkpoint(
     Returns:
         int, the previously-serialized number of iterations.
     """
+    return load_checkpoint(src, model, optimizer)
     raise NotImplementedError
 
 
@@ -545,6 +569,7 @@ def run_train_bpe(
     special_tokens: list[str],
     **kwargs,
 ):
+    return train_bpe(input_path, vocab_size, special_tokens)
     """Given the path to an input corpus, run train a BPE tokenizer and
     output its vocabulary and merges.
 
@@ -564,7 +589,7 @@ def run_train_bpe(
             vocab: dict[int, bytes]
                 The trained tokenizer vocabulary, a mapping from int (token ID in the vocabulary)
                 to bytes (token bytes)
-            merges: list[tuple[bytes, bytes]]
+                
                 BPE merges. Each list item is a tuple of bytes (<token1>, <token2>),
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
