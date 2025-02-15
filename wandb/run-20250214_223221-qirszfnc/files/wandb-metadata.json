@@ -1,0 +1,16 @@
+{
+  "os":  "Windows-10-10.0.26100-SP0",
+  "python":  "CPython 3.10.16",
+  "startedAt":  "2025-02-15T08:32:22.189401Z",
+  "program":  "c:\\Users\\cpbsw\\s2025-assignment1-basics\\ece496b_basics\\train_model.py",
+  "codePath":  "ece496b_basics\\train_model.py",
+  "git":  {
+    "remote":  "https://github.com/CoenBracilano/s2025-assignment1-basics",
+    "commit":  "811cfd36d4c667096fd29aa53f988b2320fb5ca3"
+  },
+  "email":  "coenb@hawaii.edu",
+  "root":  "C:\\Users\\cpbsw\\s2025-assignment1-basics",
+  "host":  "LAPTOP-MSMN9E7J",
+  "executable":  "C:\\Users\\cpbsw\\anaconda3\\envs\\ece496b_basics\\python.exe",
+  "codePathLocal":  "ece496b_basics\\train_model.py"
+}

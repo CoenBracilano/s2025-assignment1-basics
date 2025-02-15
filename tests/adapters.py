@@ -10,6 +10,7 @@ from ece496b_basics.loop import data_loader, load_checkpoint, save_checkpoint
 from ece496b_basics.bpe2 import train_bpe
 from ece496b_basics.gelu import Transformer_LM, TransformerBlock, gelu_func, RMSNorm, PWFF, multiHeadAttn, scaled_dot_product_attention, softmax
 from ece496b_basics.optimize import AdamW, clip_gradients, cosine_schedule, cross_entropy
+from ece496b_basics.tokenizer import BPETokenizer
 
 
 def run_positionwise_feedforward(
@@ -560,6 +561,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
+    return BPETokenizer(vocab, merges, special_tokens)
     raise NotImplementedError
 
 

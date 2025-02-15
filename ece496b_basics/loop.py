@@ -1,20 +1,16 @@
 import os
 from typing import IO, BinaryIO
 import torch
-import torch.nn as nn
-import math
-import numpy.typing as npt
 import numpy as np
-from torch.optim.optimizer import Optimizer
 
 from ece496b_basics.gelu import softmax
 
 
-
+#Batch and load a data set
 def data_loader(dataset: np.ndarray, batch_size: int, context_length: int, device: str)-> tuple[torch.Tensor, torch.Tensor]:
     max_start_idx = len(dataset) - context_length - 1
     if max_start_idx <= 0:
-        raise ValueError("Dataset is too short for the given context_length.")
+        raise ValueError("Dataset is too short for the given context_length.", len(dataset))
     
     start_indices = np.random.randint(0, max_start_idx + 1, size=batch_size)
     
@@ -26,7 +22,7 @@ def data_loader(dataset: np.ndarray, batch_size: int, context_length: int, devic
     
     return inputs_tensor, labels_tensor
 
-
+#Save a checkpoint to a file given a model
 def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, iteration: int, out: str | os.PathLike | BinaryIO | IO[bytes]):
     checkpoint = {
         'model_state_dict': model.state_dict(),
@@ -36,7 +32,7 @@ def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, it
 
     torch.save(checkpoint, out)
 
-
+#load a checkpoint from for a model
 def load_checkpoint(src:str | os.PathLike | BinaryIO | IO[bytes], model: torch.nn.Module, optimizer: torch.optim.Optimizer)-> int:
    checkpoint = torch.load(src)
    model.load_state_dict(checkpoint['model_state_dict'])
