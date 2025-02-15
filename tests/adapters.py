@@ -7,7 +7,7 @@ from typing import IO, BinaryIO, Iterable, Optional, Type
 import numpy.typing as npt
 import torch
 from ece496b_basics.loop import data_loader, load_checkpoint, save_checkpoint
-from ece496b_basics.train_bpe import train_bpe
+from ece496b_basics.bpe2 import train_bpe
 from ece496b_basics.gelu import Transformer_LM, TransformerBlock, gelu_func, RMSNorm, PWFF, multiHeadAttn, scaled_dot_product_attention, softmax
 from ece496b_basics.optimize import AdamW, clip_gradients, cosine_schedule, cross_entropy
 

@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 import math
 
-
+#Compute gaussian Relu function
 def gelu_func(x = torch.FloatTensor) -> torch.FloatTensor:
     return 0.5  * x.cpu() * (1 + torch.erf(x / (math.sqrt(2))))
 
-
+#Position wise feed forward module
 class PWFF(nn.Module):
     def __init__(self, d_model: int, d_ff: int, weights: dict[str, torch.FloatTensor]):
         super().__init__()
@@ -18,11 +18,11 @@ class PWFF(nn.Module):
         self.fc1 = nn.Linear(d_model, d_ff, bias=False)
         self.fc2 = nn.Linear(d_ff, d_model, bias=False)
 
-        # Ensure required weight keys exist
+        #Ensure required weight keys exist
         assert "w1.weight" in weights, "Missing 'w1.weight' in weights dictionary."
         assert "w2.weight" in weights, "Missing 'w2.weight' in weights dictionary."
 
-        # Assign provided weights to the layers
+        #Assign provided weights to the layers
         self.fc1.weight.data = weights["w1.weight"]
         self.fc2.weight.data = weights["w2.weight"]
 
@@ -30,6 +30,7 @@ class PWFF(nn.Module):
         #Computes w2*gelu(x*w1)
         return self.fc2(gelu_func(self.fc1(x)))
 
+#Computes Root Mean Squared normalization 
 class RMSNorm(nn.Module):
     def __init__(self, d_model: int, eps: float, weights: dict[str, torch.FloatTensor]):
         super().__init__()
@@ -52,7 +53,7 @@ class RMSNorm(nn.Module):
         #Multiply by gi aka apply the weights to our normalized values
         return normal * self.weight
 
-
+#Compute the softmax operation on an input of logits, to get a probability distrabution
 def softmax(input: torch.FloatTensor, dim: int)-> torch.FloatTensor:
     #c is our value for finding numerical stability
     #It is written as oi in the document 
@@ -61,6 +62,7 @@ def softmax(input: torch.FloatTensor, dim: int)-> torch.FloatTensor:
     exp_vals = torch.exp(scaled)
     return exp_vals / torch.sum(exp_vals, dim=dim, keepdim=True)
  
+ #Calculate attention matrix
 def scaled_dot_product_attention(
     K: torch.FloatTensor, Q: torch.FloatTensor, 
     V: torch.FloatTensor, mask: Optional[torch.BoolTensor] = None, 
@@ -91,6 +93,7 @@ def scaled_dot_product_attention(
 
     return soft @ V
 
+#Apply multi head attention to the given input tensor
 class multiHeadAttn(nn.Module):
     def __init__(self, d_model: int, num_heads: int, attn_pdrop: float, weights: dict[str, torch.FloatTensor]):
         super().__init__()
@@ -100,11 +103,11 @@ class multiHeadAttn(nn.Module):
         self.d_head = d_model // num_heads #Find the dimensionality of each head
 
         #Extract weights from the weight list
-        q_weights = torch.stack([weights[f"q_heads.{i}.weight"] for i in range(num_heads)], dim=0)  # (num_heads, d_head, d_model)
-        k_weights = torch.stack([weights[f"k_heads.{i}.weight"] for i in range(num_heads)], dim=0)  # (num_heads, d_head, d_model)
-        v_weights = torch.stack([weights[f"v_heads.{i}.weight"] for i in range(num_heads)], dim=0)  # (num_heads, d_head, d_model)
+        q_weights = torch.stack([weights[f"q_heads.{i}.weight"] for i in range(num_heads)], dim=0)  
+        k_weights = torch.stack([weights[f"k_heads.{i}.weight"] for i in range(num_heads)], dim=0)
+        v_weights = torch.stack([weights[f"v_heads.{i}.weight"] for i in range(num_heads)], dim=0)
 
-        # Combine the weights into a single weight matrix to make computation more efficiant
+        #Combine the weights into a single weight matrix 
         self.qkv_proj = torch.cat([q_weights, k_weights, v_weights], dim=0)
         self.qkv_proj = nn.Parameter(self.qkv_proj.reshape(3 * self.num_heads * self.d_head, d_model))
 
@@ -116,7 +119,7 @@ class multiHeadAttn(nn.Module):
         #Shape returns three values and we only want two for the time being
         batch_size, seq_length, _ = input.shape
 
-        # Compute the weights accross the input using the combined weight matrix 
+        #Compute the weights accross the input using the combined weight matrix 
         qkv = torch.matmul(input, self.qkv_proj.T)
         # Reshape our tensor
         qkv = qkv.reshape(batch_size, seq_length, 3, self.num_heads, self.d_head)
@@ -143,7 +146,7 @@ class multiHeadAttn(nn.Module):
         return output
 
 
-
+#Execute a transformer block given by our model
 class TransformerBlock(nn.Module):
     def __init__(self, d_model: int, num_heads: int, d_ff: int, 
                  attn_pdrop: float, residual_pdrop: float, 
@@ -156,7 +159,7 @@ class TransformerBlock(nn.Module):
         self.residual_pdrop = residual_pdrop
         self.d_head = d_model // num_heads  # Dimension of each head
 
-        # Extract weights
+        #Extract weights
         self.q_proj_weight = weights["attn.q_proj.weight"]
         self.k_proj_weight = weights["attn.k_proj.weight"]
         self.v_proj_weight = weights["attn.v_proj.weight"]
@@ -167,13 +170,13 @@ class TransformerBlock(nn.Module):
         self.ffn_w2_weight = weights["ffn.w2.weight"]
         self.ln2_weight = weights["ln2.weight"]
 
-        # Reshape key, query, value weights
+        #Reshape key, query, value weights
         self.q_proj_weight = self.q_proj_weight.view(num_heads, self.d_head, d_model)
         self.k_proj_weight = self.k_proj_weight.view(num_heads, self.d_head, d_model)
         self.v_proj_weight = self.v_proj_weight.view(num_heads, self.d_head, d_model)
         self.shaped_weights = transform_weights(weights, num_heads)
 
-        # Define the layers
+        #Define the layers
         self.rms_norm1 = RMSNorm(d_model, 1.0e-5, {"weight": self.ln1_weight})
         self.rms_norm2 = RMSNorm(d_model, 1.0e-5, {"weight": self.ln2_weight})
 
@@ -184,58 +187,58 @@ class TransformerBlock(nn.Module):
         }
         self.pwff = PWFF(d_model, d_ff, ffn_weights)
 
-        # Define dropout layers
+        #Define dropout layers
         self.dropout_residual = nn.Dropout(residual_pdrop)
 
     def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
-        # Apply first RMSNorm
+        #Apply RMSNorm
         rms_out = self.rms_norm1(x)
 
-        # Multi-Head Attention
+        #Multi-Head Attention
         attn_out = self.multihead_attn(rms_out)
 
-        # Apply dropout and residual connection
+        #Apply dropout and add origional input
         attn_out = self.dropout_residual(attn_out)
-        first_sum = x + attn_out  # Residual connection
+        first_sum = x + attn_out
 
-        # Apply second RMSNorm
+        #Apply second RMSNorm
         rms_out = self.rms_norm2(first_sum)
 
-        # Feed-forward network
+        #Feed-forward network
         pwff_out = self.pwff(rms_out)
 
-        # Apply dropout and final residual connection
+        #Apply dropout and addition from the middle
         pwff_out = self.dropout_residual(pwff_out)
         return first_sum + pwff_out
 
-
+#Helper function to apply transformation accross weight tensors
 def transform_weights(weights, num_heads):
     transformed_weights = {}
 
-    # Extract large concatenated weights
+    #Extract large concatenated weights
     q_proj_weight = weights["attn.q_proj.weight"]
     k_proj_weight = weights["attn.k_proj.weight"]
     v_proj_weight = weights["attn.v_proj.weight"]
     output_proj_weight = weights["attn.output_proj.weight"]
 
-    # Split into individual heads
+    #Split into individual heads
     q_heads = torch.chunk(q_proj_weight, num_heads, dim=0)
     k_heads = torch.chunk(k_proj_weight, num_heads, dim=0)
     v_heads = torch.chunk(v_proj_weight, num_heads, dim=0)
 
-    # Store the split weights
+    #Store the split weights
     for i in range(num_heads):
         transformed_weights[f"q_heads.{i}.weight"] = q_heads[i]
         transformed_weights[f"k_heads.{i}.weight"] = k_heads[i]
         transformed_weights[f"v_heads.{i}.weight"] = v_heads[i]
 
-    # Store the output projection weight
+    #Store the output projection weight
     transformed_weights["output_proj.weight"] = output_proj_weight
 
     return transformed_weights
 
 
-
+#The transformer language model
 class Transformer_LM(nn.Module):
     def __init__(self, vocab_size: int, context_length: int, d_model: int, num_layers: int, num_heads: int,
                  d_ff: int, attn_pdrop: float, residual_pdrop: float, weights: dict[str, torch.FloatTensor]):
@@ -249,13 +252,13 @@ class Transformer_LM(nn.Module):
         self.num_layers = num_layers
         self.residual_pdrop = residual_pdrop
 
-        # Initialize token and position embeddings
+        #Initialize token and position embeddings
         self.token_embeddings = nn.Embedding(vocab_size, d_model)
         self.position_embeddings = nn.Embedding(context_length, d_model)
         self.token_embeddings.weight = nn.Parameter(weights['token_embeddings.weight'])
         self.position_embeddings.weight = nn.Parameter(weights['position_embeddings.weight'])
 
-        # Transformer blocks
+        # Setup transformer blocks
         self.layers = nn.ModuleList([
             TransformerBlock(
                 d_model=d_model,
@@ -268,18 +271,18 @@ class Transformer_LM(nn.Module):
             for layer_idx in range(num_layers)
         ])
 
-        # RMSNorm
+        #RMSNorm, using 1e-5 as epsilon as a standard factor
         self.rms = RMSNorm(d_model=self.d_model, eps=1.0e-5, weights={"weight": weights['ln_final.weight']})
 
-        # Output linear layer (language model head)
+        #Output linear layer
         self.lm_head = nn.Linear(self.d_model, self.vocab_size, bias=False)
         self.lm_head.weight = nn.Parameter(weights['lm_head.weight'])
 
         #Initilize dropout
         self.dropout = nn.Dropout(residual_pdrop)
 
+    #Extract the layer weights for a specific transformer block and return them as a dictionary
     def _extract_layer_weights(self, weights: dict[str, torch.FloatTensor], layer_idx: int) -> dict[str, torch.FloatTensor]:
-        """ Extract only the weights relevant to a specific TransformerBlock. """
         return {
             'attn.q_proj.weight': weights[f'layers.{layer_idx}.attn.q_proj.weight'],
             'attn.k_proj.weight': weights[f'layers.{layer_idx}.attn.k_proj.weight'],
@@ -294,28 +297,27 @@ class Transformer_LM(nn.Module):
     def forward(self, input: torch.LongTensor) -> torch.FloatTensor:
         batch_size, seq_len = input.shape
 
-        # Token and position embeddings
+        #Token and position embeddings
         token_emb = self.token_embeddings(input)  
         positions = torch.arange(seq_len, device=input.device).expand(batch_size, seq_len)
         pos_emb = self.position_embeddings(positions)
 
-        # Sum token and position embeddings
+        #Sum token and position embeddings
         current_value = token_emb + pos_emb
 
-        # Apply dropout 
+        #Apply dropout 
         current_value = self.dropout(current_value)
 
-        # Transformer blocks
+        #Run Num_layers transformer blocks
         for layer in self.layers:
             current_value = layer(current_value)
 
-        # Apply RMSNorm
+        #Apply RMSNorm
         current_value = self.rms(current_value)
 
-        # Linear projection
+        #Linear projection
         current_value = self.lm_head(current_value)
 
-        # Apply softmax (using your function)
         return current_value
         
 if __name__ == "__main__":

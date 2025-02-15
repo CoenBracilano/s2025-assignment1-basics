@@ -2,8 +2,6 @@ from collections.abc import Callable, Iterable
 from typing import Optional
 import torch
 import math
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
 
@@ -71,7 +69,7 @@ class AdamW(Optimizer):
 
                 state = self.state[p]
 
-                # State initialization
+                #State initialization
                 if len(state) == 0:
                     state['step'] = 0
                     state['exp_avg'] = torch.zeros_like(p.data)
@@ -83,23 +81,23 @@ class AdamW(Optimizer):
                 state['step'] += 1
                 t = state['step']
 
-                # Update biased first moment estimate
+                #Update biased first moment estimate
                 exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
                 # Update biased second raw moment estimate
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
-                # Compute bias corrections
+                #Compute bias corrections
                 bias_correction1 = 1 - beta1 ** t
                 bias_correction2 = 1 - beta2 ** t
 
-                # Compute step-size
+                #Compute step-size
                 alpha_t = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
-                # Apply decoupled weight decay
+                #Apply decoupled weight decay
                 if group['weight_decay'] != 0:
-                    p.data.mul_(1 - group['lr'] * group['weight_decay'])  # Corrected
+                    p.data.mul_(1 - group['lr'] * group['weight_decay'])
 
-                # Update parameters
+                #Update parameters
                 denom = exp_avg_sq.sqrt().add_(group['eps'])
                 p.data.addcdiv_(exp_avg, denom, value=-alpha_t)
 
@@ -118,22 +116,23 @@ def cosine_schedule(it: int, max_lr: float, min_lr: float, warmup_iters: int, co
         return (min_lr + (0.5*(1.0+ math.cos(((it-warmup_iters)/(cosine_cycle_iters-warmup_iters))*math.pi)))*(max_lr-min_lr))
 
 
-def clip_gradients(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float):
-    # total_norm = torch.sqrt(sum(torch.sum(p.grad**2) for p in parameters))
-    torch.nn.utils.clip_grad_norm_(parameters, max_l2_norm)
-    # if total_norm > max_l2_norm:
-    #     scale = max_l2_norm / (total_norm + (1e-6))
-    #     for p in parameters:
-    #         p.grad.mul_(scale)
 
+#This function works the same as torch.nn.utils.clip_grad.clip_grad_norm_(parameters, max_l2_norm, norm_type=2)
+# I have tried running the tests against the built in pytorch function and they still fail so I am not sure what to do about that
+def clip_gradients(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float):
+    total_norm = torch.sqrt(sum(torch.sum(p.grad**2) for p in parameters))
+    if total_norm > max_l2_norm:
+        scale = max_l2_norm / (total_norm + (1e-6))
+        for p in parameters:
+            p.grad.mul_(scale)
     
 
 if __name__ == "__main__":
     weights = torch.nn.Parameter(5 * torch.randn((10, 10)))
     opt = SGD([weights], lr=1e3)
     for t in range(10):
-        opt.zero_grad() # Reset the gradients for all learnable parameters.
-        loss = (weights**2).mean() # Compute a scalar loss value.
+        opt.zero_grad() #Reset the gradients for all learnable parameters.
+        loss = (weights**2).mean() #Compute a scalar loss value.
         print(loss.cpu().item())
-        loss.backward() # Run backward pass, which computes gradients.
-        opt.step() # Run optimizer step.
+        loss.backward() #Run backward pass, which computes gradients.
+        opt.step() #Run optimizer step.
